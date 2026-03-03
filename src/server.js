@@ -159,6 +159,9 @@ function repairGatewayConfig() {
     if (!config.gateway.http.endpoints) config.gateway.http.endpoints = {};
     config.gateway.http.endpoints.chatCompletions = { enabled: true };
 
+    // Disable device pairing for cloud deployment — use token auth instead
+    config.gateway.dangerouslyDisableDeviceAuth = true;
+
     fs.writeFileSync(cfgPath, JSON.stringify(config, null, 2));
     console.log('[wrapper] Config repaired: allowedOrigins=*, chatCompletions=enabled');
 
