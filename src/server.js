@@ -159,9 +159,6 @@ function repairGatewayConfig() {
     if (!config.gateway.http.endpoints) config.gateway.http.endpoints = {};
     config.gateway.http.endpoints.chatCompletions = { enabled: true };
 
-    // Let openclaw doctor handle channels — remove any stale config
-    delete config.channels;
-
     fs.writeFileSync(cfgPath, JSON.stringify(config, null, 2));
     console.log('[wrapper] Config repaired: allowedOrigins=*, chatCompletions=enabled');
   } catch (err) {
