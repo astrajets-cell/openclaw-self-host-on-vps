@@ -159,14 +159,11 @@ function repairGatewayConfig() {
     if (!config.gateway.http.endpoints) config.gateway.http.endpoints = {};
     config.gateway.http.endpoints.chatCompletions = { enabled: true };
 
-    // Auto-allow webchat without pairing
-    if (!config.channels) config.channels = {};
-    if (!config.channels.webchat) config.channels.webchat = {};
-    config.channels.webchat.enabled = true;
-    config.channels.webchat.dmPolicy = "open";
+    // Let openclaw doctor handle channels — remove any stale config
+    delete config.channels;
 
     fs.writeFileSync(cfgPath, JSON.stringify(config, null, 2));
-    console.log('[wrapper] Config repaired: allowedOrigins=*, chatCompletions=enabled, webchat=open');
+    console.log('[wrapper] Config repaired: allowedOrigins=*, chatCompletions=enabled');
   } catch (err) {
     console.warn('[wrapper] Config repair failed:', err.message);
   }
