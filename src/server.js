@@ -141,9 +141,36 @@ async function waitForGatewayReady(opts = {}) {
   return false;
 }
 
+function repairGatewayConfig() {
+  try {
+    const cfgPath = configPath();
+    if (!fs.existsSync(cfgPath)) return;
+
+    const config = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
+
+    // Ensure controlUi allows all origins (Railway proxies requests)
+    if (!config.gateway) config.gateway = {};
+    if (!config.gateway.controlUi) config.gateway.controlUi = {};
+    config.gateway.controlUi.allowInsecureAuth = true;
+    config.gateway.controlUi.allowedOrigins = ["*"];
+
+    // Enable chat completions HTTP endpoint
+    if (!config.gateway.http) config.gateway.http = {};
+    if (!config.gateway.http.endpoints) config.gateway.http.endpoints = {};
+    config.gateway.http.endpoints.chatCompletions = { enabled: true };
+
+    fs.writeFileSync(cfgPath, JSON.stringify(config, null, 2));
+    console.log('[wrapper] Config repaired: allowedOrigins=*, chatCompletions=enabled');
+  } catch (err) {
+    console.warn('[wrapper] Config repair failed:', err.message);
+  }
+}
+
 async function startGateway() {
   if (gatewayProc) return;
   if (!isConfigured()) throw new Error("Gateway cannot start: not configured");
+
+  repairGatewayConfig();
 
   fs.mkdirSync(STATE_DIR, { recursive: true });
   fs.mkdirSync(WORKSPACE_DIR, { recursive: true });
