@@ -161,6 +161,17 @@ function repairGatewayConfig() {
 
     fs.writeFileSync(cfgPath, JSON.stringify(config, null, 2));
     console.log('[wrapper] Config repaired: allowedOrigins=*, chatCompletions=enabled');
+
+    // Run doctor --fix to handle webchat/channel setup
+    const dr = childProcess.execSync(
+      `${OPENCLAW_NODE} ${OPENCLAW_ENTRY} doctor --fix`,
+      {
+        env: { ...process.env, OPENCLAW_STATE_DIR: STATE_DIR, OPENCLAW_WORKSPACE_DIR: WORKSPACE_DIR },
+        stdio: 'pipe',
+        timeout: 30000
+      }
+    );
+    console.log('[wrapper] doctor --fix after config repair:', dr.toString().slice(-200));
   } catch (err) {
     console.warn('[wrapper] Config repair failed:', err.message);
   }
