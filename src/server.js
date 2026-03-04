@@ -1088,6 +1088,45 @@ proxy.on("proxyReqWs", (proxyReq, req, socket, options, head) => {
   proxyReq.setHeader("Origin", GATEWAY_TARGET);
 });
 
+// Dedicated HTTP route for chat completions — bypasses http-proxy which hangs on POST
+app.post("/v1/chat/completions", async (req, res) => {
+  if (!isConfigured() || !isGatewayReady()) {
+    return res.status(503).json({ error: "Gateway not ready" });
+  }
+
+  try {
+    const gatewayUrl = `http://127.0.0.1:${INTERNAL_GATEWAY_PORT}/v1/chat/completions`;
+    console.log("[proxy] /v1/chat/completions → forwarding to", gatewayUrl);
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 120000);
+
+    const response = await fetch(gatewayUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${OPENCLAW_GATEWAY_TOKEN}`,
+        ...(req.headers["x-openclaw-agent-id"]
+          ? { "x-openclaw-agent-id": req.headers["x-openclaw-agent-id"] }
+          : {}),
+      },
+      body: JSON.stringify(req.body),
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeout);
+
+    const data = await response.text();
+    res
+      .status(response.status)
+      .set("Content-Type", response.headers.get("content-type") || "application/json")
+      .send(data);
+  } catch (err) {
+    console.error("[proxy] /v1/chat/completions error:", err.message);
+    res.status(502).json({ error: "Gateway error", message: err.message });
+  }
+});
+
 app.use(async (req, res) => {
   if (!isConfigured() && !req.path.startsWith("/setup")) {
     return res.redirect("/setup");
