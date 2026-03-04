@@ -1055,18 +1055,25 @@ const proxy = httpProxy.createProxyServer({
   timeout: 120_000,
 });
 
-proxy.on("error", (err, _req, res) => {
-  console.error("[proxy]", err);
+proxy.on("error", (err, req, res) => {
+  console.error("[proxy] Error:", err.message, "| path:", req?.url);
   if (res && typeof res.headersSent !== "undefined" && !res.headersSent) {
-    res.writeHead(503, { "Content-Type": "text/html" });
-    try {
-      const html = fs.readFileSync(
-        path.join(process.cwd(), "src", "public", "loading.html"),
-        "utf8",
-      );
-      res.end(html);
-    } catch {
-      res.end("Gateway unavailable. Retrying...");
+    // Return JSON for API requests, HTML for browser requests
+    const isApi = req?.url?.startsWith("/v1/") || req?.headers?.accept?.includes("application/json");
+    if (isApi) {
+      res.writeHead(502, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Gateway timeout", message: err.message }));
+    } else {
+      res.writeHead(503, { "Content-Type": "text/html" });
+      try {
+        const html = fs.readFileSync(
+          path.join(process.cwd(), "src", "public", "loading.html"),
+          "utf8",
+        );
+        res.end(html);
+      } catch {
+        res.end("Gateway unavailable. Retrying...");
+      }
     }
   }
 });
@@ -1091,12 +1098,20 @@ app.use(async (req, res) => {
       try {
         await ensureGatewayRunning();
       } catch {
+        const isApi = req.path.startsWith("/v1/") || req.headers.accept?.includes("application/json");
+        if (isApi) {
+          return res.status(503).json({ error: "Gateway starting", message: "OpenClaw gateway is not ready yet" });
+        }
         return res
           .status(503)
           .sendFile(path.join(process.cwd(), "src", "public", "loading.html"));
       }
 
       if (!isGatewayReady()) {
+        const isApi = req.path.startsWith("/v1/") || req.headers.accept?.includes("application/json");
+        if (isApi) {
+          return res.status(503).json({ error: "Gateway starting", message: "OpenClaw gateway is not ready yet" });
+        }
         return res
           .status(503)
           .sendFile(path.join(process.cwd(), "src", "public", "loading.html"));
